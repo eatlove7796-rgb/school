@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- 모바일 웹 앱 설정 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="운동목록">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#4f46e5">
+
+    <title>주간 운동 목록</title>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            -webkit-tap-highlight-color: transparent;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        @keyframes pulse-once {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .animate-pulse-once { animation: pulse-once 0.3s ease-in-out; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // 아이콘 컴포넌트
+        const Icons = {
+            ChevronLeft: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m15 18-6-6 6-6"/></svg>,
+            ChevronRight: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"/></svg>,
+            Plus: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+            Trash2: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
+            Dumbbell: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/></svg>,
+            Trophy: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>,
+            Calendar: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+            Maximize: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>,
+            Minimize: ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+        };
+
+        const WeeklyWorkoutApp = () => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            // workoutTypes를 날짜별로 저장하는 객체로 변경 (Migration 고려)
+            const [weeklyConfigs, setWeeklyConfigs] = useState({});
+            const [logs, setLogs] = useState({});
+            const [newWorkout, setNewWorkout] = useState('');
+            const [isCompact, setIsCompact] = useState(false);
+            // 설치 안내 모달 상태 삭제
+
+            // 날짜 유틸리티
+            const formatDateKey = (date) => date.toISOString().split('T')[0];
+            const getMonday = (d) => {
+                d = new Date(d);
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                return new Date(d.setDate(diff));
+            };
+
+            const weekDates = useMemo(() => {
+                const monday = getMonday(currentDate);
+                const week = [];
+                for (let i = 0; i < 7; i++) {
+                    const day = new Date(monday);
+                    day.setDate(monday.getDate() + i);
+                    week.push(day);
+                }
+                return week;
+            }, [currentDate]);
+
+            const currentMondayKey = formatDateKey(weekDates[0]);
+
+            // 초기 로딩 및 마이그레이션
+            useEffect(() => {
+                const savedLogs = localStorage.getItem('workoutLogs');
+                const savedConfigs = localStorage.getItem('workoutConfigs');
+                const oldTypes = localStorage.getItem('workoutTypes');
+
+                if (savedLogs) setLogs(JSON.parse(savedLogs));
+
+                if (savedConfigs) {
+                    setWeeklyConfigs(JSON.parse(savedConfigs));
+                } else if (oldTypes) {
+                    const initialTypes = JSON.parse(oldTypes);
+                    const todayMonday = formatDateKey(getMonday(new Date()));
+                    setWeeklyConfigs({ [todayMonday]: initialTypes });
+                }
+            }, []);
+
+            // 데이터 저장
+            useEffect(() => {
+                localStorage.setItem('workoutLogs', JSON.stringify(logs));
+            }, [logs]);
+
+            useEffect(() => {
+                if (Object.keys(weeklyConfigs).length > 0) {
+                    localStorage.setItem('workoutConfigs', JSON.stringify(weeklyConfigs));
+                }
+            }, [weeklyConfigs]);
+
+            // 현재 주차에 표시할 운동 목록 계산
+            const activeWorkoutTypes = useMemo(() => {
+                if (weeklyConfigs[currentMondayKey]) {
+                    return weeklyConfigs[currentMondayKey];
+                }
+
+                const sortedKeys = Object.keys(weeklyConfigs).sort().reverse();
+                const pastKey = sortedKeys.find(key => key < currentMondayKey);
+                
+                if (pastKey) {
+                    return weeklyConfigs[pastKey];
+                }
+
+                return ['헬스', '달리기', '요가'];
+            }, [weeklyConfigs, currentMondayKey]);
+
+            // 날짜/요일 포맷
+            const getDayName = (date) => new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(date);
+            const formatShortDate = (date) => `${date.getMonth() + 1}/${date.getDate()}`;
+            const todayKey = formatDateKey(new Date());
+
+            const moveWeek = (direction) => {
+                const newDate = new Date(currentDate);
+                newDate.setDate(currentDate.getDate() + (direction * 7));
+                setCurrentDate(newDate);
+            };
+
+            const toggleWorkout = (dateKey, type) => {
+                const key = `${dateKey}-${type}`;
+                setLogs(prev => {
+                    const newLogs = { ...prev };
+                    if (newLogs[key]) delete newLogs[key];
+                    else newLogs[key] = true;
+                    return newLogs;
+                });
+            };
+
+            const addWorkoutType = (e) => {
+                e.preventDefault();
+                const trimmed = newWorkout.trim();
+                if (trimmed && !activeWorkoutTypes.includes(trimmed)) {
+                    const newTypes = [...activeWorkoutTypes, trimmed];
+                    setWeeklyConfigs(prev => ({
+                        ...prev,
+                        [currentMondayKey]: newTypes
+                    }));
+                    setNewWorkout('');
+                }
+            };
+
+            const deleteWorkoutType = (typeToDelete) => {
+                if (confirm(`'${typeToDelete}' 종목을 삭제하시겠습니까? (이번 주부터 적용됩니다)`)) {
+                    const newTypes = activeWorkoutTypes.filter(type => type !== typeToDelete);
+                    setWeeklyConfigs(prev => ({
+                        ...prev,
+                        [currentMondayKey]: newTypes
+                    }));
+                }
+            };
+
+            const calculateWeeklyProgress = () => {
+                let totalPossible = weekDates.length * activeWorkoutTypes.length;
+                if (totalPossible === 0) return 0;
+                let completedCount = 0;
+                weekDates.forEach(date => {
+                    const dateKey = formatDateKey(date);
+                    activeWorkoutTypes.forEach(type => {
+                        if (logs[`${dateKey}-${type}`]) completedCount++;
+                    });
+                });
+                return Math.round((completedCount / totalPossible) * 100);
+            };
+
+            const progress = calculateWeeklyProgress();
+
+            return (
+                <div className="min-h-screen bg-gray-50 flex flex-col items-center">
+                    <div className="w-full max-w-5xl bg-white shadow-lg overflow-hidden flex flex-col min-h-screen md:min-h-0 md:rounded-2xl">
+                        
+                        {/* Header */}
+                        <div className="bg-indigo-600 p-4 md:p-6 text-white shrink-0">
+                            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
+                                <div className="flex justify-between items-center w-full md:w-auto gap-3">
+                                    <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+                                        <Icons.Dumbbell className="w-6 h-6 md:w-8 md:h-8" />
+                                        주간 운동
+                                    </h1>
+                                    <div className="flex gap-2">
+                                        {/* 화면 최적화 버튼 */}
+                                        <button 
+                                            onClick={() => setIsCompact(!isCompact)}
+                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-white/30 ${
+                                                isCompact ? 'bg-white text-indigo-600 shadow-md' : 'bg-indigo-700/50 text-white hover:bg-indigo-700'
+                                            }`}
+                                        >
+                                            {isCompact ? <Icons.Maximize className="w-3 h-3" /> : <Icons.Minimize className="w-3 h-3" />}
+                                            {isCompact ? '확대' : '한눈에'}
+                                        </button>
+                                        {/* 설치 버튼 제거됨 */}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 bg-indigo-700 px-3 py-1.5 md:px-4 md:py-2 rounded-lg self-start md:self-auto text-sm md:text-base">
+                                    <Icons.Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
+                                    <span className="font-medium">달성률: {progress}%</span>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center bg-indigo-500/30 rounded-xl p-1 md:p-2">
+                                <button onClick={() => moveWeek(-1)} className="p-1 md:p-2 hover:bg-white/10 rounded-full transition-colors">
+                                    <Icons.ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+                                </button>
+                                <div className="flex items-center gap-2 font-semibold text-sm md:text-lg">
+                                    <Icons.Calendar className="w-4 h-4 md:w-5 md:h-5" />
+                                    {formatShortDate(weekDates[0])} - {formatShortDate(weekDates[6])}
+                                </div>
+                                <button onClick={() => moveWeek(1)} className="p-1 md:p-2 hover:bg-white/10 rounded-full transition-colors">
+                                    <Icons.ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="flex-1 overflow-x-auto no-scrollbar relative">
+                            <table className="w-full table-fixed md:table-auto">
+                                <thead>
+                                    <tr className="bg-gray-100 border-b border-gray-200">
+                                        <th className={`text-left font-bold text-gray-600 sticky left-0 bg-gray-100 z-10 border-r border-gray-200 transition-all ${
+                                            isCompact ? 'p-1 w-[50px] text-[10px]' : 'p-2 w-[70px] text-xs'
+                                        } md:p-4 md:w-40 md:text-base`}>종목</th>
+                                        {weekDates.map((date, index) => {
+                                            const dKey = formatDateKey(date);
+                                            const isToday = dKey === todayKey;
+                                            const isWeekend = index >= 5;
+                                            return (
+                                                <th key={dKey} className={`text-center font-medium transition-all ${
+                                                    isCompact ? 'p-0.5' : 'p-1'
+                                                } md:p-4 ${isToday ? 'bg-indigo-50 text-indigo-700' : ''}`}>
+                                                    <div className={`${isCompact ? 'text-[9px]' : 'text-[10px]'} md:text-sm ${isWeekend ? 'text-red-500' : 'text-gray-500'}`}>{getDayName(date)}</div>
+                                                    <div className={`${isCompact ? 'text-[10px]' : 'text-xs'} md:text-xl font-bold ${isWeekend ? 'text-red-600' : 'text-gray-800'}`}>{date.getDate()}</div>
+                                                    {isToday && <div className={`md:hidden bg-indigo-500 rounded-full mx-auto ${isCompact ? 'w-1 h-1 mt-0' : 'w-1.5 h-1.5 mt-0.5'}`}></div>}
+                                                    {isToday && !isCompact && <span className="hidden md:inline-block text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full mt-1">오늘</span>}
+                                                </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {activeWorkoutTypes.length === 0 ? (
+                                        <tr><td colSpan="8" className="p-8 text-center text-gray-400 text-sm">운동을 추가해주세요!</td></tr>
+                                    ) : (
+                                        activeWorkoutTypes.map((type) => (
+                                            <tr key={type} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                                                isCompact ? 'h-10' : 'h-14'
+                                            } md:h-auto`}>
+                                                <td className={`font-medium text-gray-700 sticky left-0 bg-white z-10 border-r border-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] truncate transition-all ${
+                                                    isCompact ? 'p-1 text-[10px]' : 'p-2 text-xs'
+                                                } md:p-4 md:text-base`}>
+                                                    <div className="flex justify-between items-center h-full">
+                                                        <span className="truncate w-full pr-1">{type}</span>
+                                                        <button onClick={() => deleteWorkoutType(type)} className="hidden md:block text-gray-300 hover:text-red-500">
+                                                            <Icons.Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                {weekDates.map((date) => {
+                                                    const dateKey = formatDateKey(date);
+                                                    const isChecked = logs[`${dateKey}-${type}`];
+                                                    const isToday = dateKey === todayKey;
+                                                    return (
+                                                        <td key={`${dateKey}-${type}`} 
+                                                            className={`text-center align-middle transition-all ${
+                                                                isCompact ? 'p-0.5' : 'p-1'
+                                                            } md:p-2 ${isToday ? 'bg-indigo-50/30' : ''}`}
+                                                            onClick={() => toggleWorkout(dateKey, type)}
+                                                        >
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); toggleWorkout(dateKey, type); }}
+                                                                className={`
+                                                                    transition-all duration-200 flex items-center justify-center mx-auto
+                                                                    ${isCompact ? 'w-6 h-6 rounded-md' : 'w-8 h-8 rounded-lg'} 
+                                                                    md:w-12 md:h-12 md:rounded-xl
+                                                                    ${isChecked 
+                                                                        ? 'bg-indigo-500 text-white shadow-sm md:shadow-md transform scale-95 md:scale-105' 
+                                                                        : 'bg-gray-100 text-gray-300 active:bg-gray-200 md:hover:bg-gray-200'
+                                                                    }
+                                                                `}
+                                                            >
+                                                                {isChecked && <Icons.Dumbbell className={`${isCompact ? 'w-3 h-3' : 'w-4 h-4'} md:w-6 md:h-6 animate-pulse-once`} />}
+                                                            </button>
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className={`bg-gray-50 border-t border-gray-200 shrink-0 safe-area-bottom transition-all ${
+                            isCompact ? 'p-2' : 'p-4'
+                        } md:p-6`}>
+                            <form onSubmit={addWorkoutType} className="flex gap-2 md:gap-4 max-w-md mx-auto md:mx-0">
+                                <input
+                                    type="text"
+                                    value={newWorkout}
+                                    onChange={(e) => setNewWorkout(e.target.value)}
+                                    placeholder="운동 추가"
+                                    className={`flex-1 rounded-lg md:rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all ${
+                                        isCompact ? 'px-2 py-2 text-sm' : 'px-3 py-3 text-base'
+                                    }`}
+                                />
+                                <button 
+                                    type="submit"
+                                    disabled={!newWorkout.trim()}
+                                    className={`bg-indigo-600 text-white rounded-lg md:rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 md:gap-2 shadow-sm whitespace-nowrap transition-all ${
+                                        isCompact ? 'px-3 py-2 text-sm' : 'px-5 py-3'
+                                    }`}
+                                >
+                                    <Icons.Plus className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'}`} />
+                                    <span>추가</span>
+                                </button>
+                            </form>
+                            
+                            <div className="md:hidden mt-2 flex flex-wrap gap-2 pb-2">
+                                {activeWorkoutTypes.length > 0 && <span className="text-[10px] text-gray-400 w-full">운동 삭제:</span>}
+                                {activeWorkoutTypes.map(type => (
+                                    <button
+                                        key={`del-${type}`}
+                                        onClick={() => deleteWorkoutType(type)}
+                                        className="flex items-center gap-1 bg-white border border-gray-200 px-2 py-1 rounded-full text-[10px] text-gray-500 active:bg-red-50 active:border-red-200 active:text-red-500 transition-colors"
+                                    >
+                                        {type} <Icons.Trash2 className="w-3 h-3" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 모달 제거됨 */}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<WeeklyWorkoutApp />);
+    </script>
+</body>
+</html>
